@@ -1,0 +1,16 @@
+secret.py
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# data and outputs stay out of git
+GM_captured_images/
+debug_crop_*.png
+storyboard_*.png
+*.jpg
+*.jpeg
+*.png
+!docs/*.png
+runs/
+.DS_Store
