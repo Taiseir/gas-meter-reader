@@ -6,11 +6,22 @@ Indentation and line breaks were rebuilt from the printout; logic is unchanged.
 """
 
 import math
+from pathlib import Path
+
 import cv2
 import numpy as np
 
 from ensemble_utils import (MethodPrediction, choose_digit_for_dial, apply_rule4, dial_value_from_angle, circular_diff_deg, )
 from classifier_infer import predict_digit_with_classifier
+
+DEBUG_DIR = Path(__file__).resolve().parent / "debug_reading"
+
+
+def _save_debug(name, img):
+    DEBUG_DIR.mkdir(exist_ok=True)
+    path = DEBUG_DIR / name
+    cv2.imwrite(str(path), img)
+    return f"{DEBUG_DIR.name}/{name}"
 
 ZERO_ANGLE = 0.0
 DIAL1_IS_CCW = True
@@ -304,7 +315,7 @@ def _run_dial(img_arr, counter_clockwise, gauge_index, dial_name, debug):
     calib = _calibrate(img_arr)
     if calib is None:
         if debug:
-            cv2.imwrite(f"failed_crop_{gauge_index}.png", img_arr)
+            _save_debug(f"failed_crop_{gauge_index}.png", img_arr)
         return 0, 0.0, 0.0, 0.0
 
     cx, cy, r = calib
@@ -361,8 +372,7 @@ def _run_dial(img_arr, counter_clockwise, gauge_index, dial_name, debug):
         cv2.putText(vis, f"read={lower_dbg} (next {upper_dbg})", (10, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.60, (0, 160, 0), 2)
 
         board = np.hstack((cv2.cvtColor(reading_mask, cv2.COLOR_GRAY2BGR), vis))
-        path = f"storyboard_dial_{gauge_index}.png"
-        cv2.imwrite(path, board)
+        path = _save_debug(f"storyboard_dial_{gauge_index}.png", board)
         print(f"   Saved: {path}")
 
     return int(lower_digit), float(value), float(rel_ang_cw), float(conf)

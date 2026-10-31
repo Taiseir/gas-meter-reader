@@ -27,9 +27,20 @@ Methods used per dial
 Then combine the angle candidates with a confidence score.
 """
 
+from pathlib import Path
+
 import cv2
 import numpy as np
 import math
+
+DEBUG_DIR = Path(__file__).resolve().parent / "debug_reading"
+
+
+def _save_debug(name, img):
+    DEBUG_DIR.mkdir(exist_ok=True)
+    path = DEBUG_DIR / name
+    cv2.imwrite(str(path), img)
+    return f"{DEBUG_DIR.name}/{name}"
 
 # ── Tuning ─────────────────────────────────────────────────────────────────────
 
@@ -454,32 +465,31 @@ def _read_needle(img_arr, cx, cy, r, gauge_index, debug):
     if combined_ang is None:
         print("     ❌ No usable angle candidates.")
         if debug:
-            cv2.imwrite(f"failed_binary_{gauge_index}.png", reading_mask)
+            _save_debug(f"failed_binary_{gauge_index}.png", reading_mask)
         return None, None, None, 0.0
 
-        raw_rel_ang = _relative_angle(combined_ang)
+    raw_rel_ang = _relative_angle(combined_ang)
 
-        tip_x = int(round(cx + 0.65 * r * math.sin(math.radians(combined_ang))))
-        tip_y = int(round(cy - 0.65 * r * math.cos(math.radians(combined_ang))))
-        tip = (tip_x, tip_y)
+    tip_x = int(round(cx + 0.65 * r * math.sin(math.radians(combined_ang))))
+    tip_y = int(round(cy - 0.65 * r * math.cos(math.radians(combined_ang))))
+    tip = (tip_x, tip_y)
 
-        print(f"      🎯 Combined: abs={combined_ang:.1f}° " f"raw_rel={raw_rel_ang:.1f}°     confidence={conf:.2f}   using={used}" )
+    print(f"      🎯 Combined: abs={combined_ang:.1f}° " f"raw_rel={raw_rel_ang:.1f}°     confidence={conf:.2f}   using={used}" )
 
-        if debug:
-            vis = img_arr.copy()
-            cv2.circle(vis, (cx, cy), r, (0, 0, 220), 2)
-            _draw_ticks(vis, cx, cy, r)
-            cv2.arrowedLine(vis, (cx, cy), tip, (220, 0, 0), 2, tipLength=0.15)
-            cv2.circle(vis, tip, 5, (0, 0, 220), -1)
-            cv2.putText(vis, f"conf={conf:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 160, 0), 2, )
+    if debug:
+        vis = img_arr.copy()
+        cv2.circle(vis, (cx, cy), r, (0, 0, 220), 2)
+        _draw_ticks(vis, cx, cy, r)
+        cv2.arrowedLine(vis, (cx, cy), tip, (220, 0, 0), 2, tipLength=0.15)
+        cv2.circle(vis, tip, 5, (0, 0, 220), -1)
+        cv2.putText(vis, f"conf={conf:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 160, 0), 2, )
 
-            bin_bgr = cv2.cvtColor(reading_mask, cv2.COLOR_GRAY2BGR)
-            board = np.hstack((bin_bgr, vis))
-            path = f"storyboard_dial_{gauge_index}.png"
-            cv2.imwrite(path, board)
-            print(f"     Saved: {path}")
+        bin_bgr = cv2.cvtColor(reading_mask, cv2.COLOR_GRAY2BGR)
+        board = np.hstack((bin_bgr, vis))
+        path = _save_debug(f"storyboard_dial_{gauge_index}.png", board)
+        print(f"     Saved: {path}")
 
-        return tip, combined_ang, raw_rel_ang, conf
+    return tip, combined_ang, raw_rel_ang, conf
 
     # ── Single dial pipeline ───────────────────────────────────────────────────────
 
@@ -487,7 +497,7 @@ def _run_dial(img_arr, counter_clockwise, gauge_index, debug):
     calib = _calibrate(img_arr)
     if calib is None:
         if debug:
-            cv2.imwrite(f"failed_crop_{gauge_index}.png", img_arr)
+            _save_debug(f"failed_crop_{gauge_index}.png", img_arr)
         return 0, 0.0, 0.0
 
     cx, cy, r = calib
@@ -496,7 +506,7 @@ def _run_dial(img_arr, counter_clockwise, gauge_index, debug):
 
     if tip is None:
         if debug:
-            cv2.imwrite(f"failed_crop_{gauge_index}.png", img_arr)
+            _save_debug(f"failed_crop_{gauge_index}.png", img_arr)
         return 0, 0.0, 0.0
 
     rel_ang_cw = _to_unified_cw(raw_rel_ang, counter_clockwise)
@@ -511,7 +521,7 @@ def r_main(cropped_gauges, debug=False):
     n = len(cropped_gauges)
     if n == 0:
         print("   ⚠️ No gauge crops to read.")
-        return 0
+        return 0, []
 
     print(f"\n{'═' * 60}")
     print(f"     Reading {n} dial(s)     [right -> left]")
@@ -550,4 +560,4 @@ def r_main(cropped_gauges, debug=False):
     print(f"    Numeric value      : {reading:,}")
     print(f"{'═' * 60}\n")
 
-    return int(reading)
+    return int(reading), left_to_right

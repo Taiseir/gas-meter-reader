@@ -23,9 +23,20 @@ For a 5-dial meter:
       D5 = top-right
 """
 
+from pathlib import Path
+
 import cv2
 from inference_sdk import InferenceHTTPClient
 from secret import ROBOFLOW_API_KEY, WORKSPACE_NAME, WORKFLOW_ID
+
+DEBUG_DIR = Path(__file__).resolve().parent / "debug_detection"
+
+
+def _save_debug(name, img):
+    DEBUG_DIR.mkdir(exist_ok=True)
+    path = DEBUG_DIR / name
+    cv2.imwrite(str(path), img)
+    return f"{DEBUG_DIR.name}/{name}"
 
 _client = InferenceHTTPClient(api_url="https://serverless.roboflow.com", api_key=ROBOFLOW_API_KEY, )
 
@@ -133,8 +144,8 @@ def _save_debug_image(image, boxes, selected):
     for i, b in enumerate(selected):
         cv2.rectangle(vis, (b["x1"], b["y1"]), (b["x2"], b["y2"]), (0, 220, 0), 2)
         cv2.putText(vis, f"D{i+1}", (b["x1"] + 4, b["y1"] + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 220, 0), 2 )
-    cv2.imwrite("debug_detections.png", vis)
-    print("      Saved: debug_detections.png")
+    out = _save_debug("debug_detections.png", vis)
+    print(f"      Saved: {out}")
 
 def d_main(image_path, expected_gauges=5, debug=False):
     image = cv2.imread(image_path)
@@ -185,8 +196,7 @@ def d_main(image_path, expected_gauges=5, debug=False):
             continue
         cropped.append(crop)
         if debug:
-            out = f"debug_crop_{i+1}.png"
-            cv2.imwrite(out, crop)
+            out = _save_debug(f"debug_crop_{i+1}.png", crop)
             print(f"   Saved: {out}")
 
         print(f"\n   Returning {len(cropped)} cropped dial(s).")

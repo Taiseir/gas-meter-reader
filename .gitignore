@@ -6,6 +6,8 @@ venv/
 
 # data and outputs stay out of git
 GM_captured_images/
+debug_detection/
+debug_reading/
 debug_crop_*.png
 storyboard_*.png
 *.jpg

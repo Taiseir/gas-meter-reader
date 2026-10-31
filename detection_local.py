@@ -18,7 +18,16 @@ MODEL_PATH = Path(os.environ.get("GM_MODEL_PATH", DEFAULT_MODEL_PATH))
 CONFIDENCE = 0.40
 BOX_PAD = 0.03
 
+DEBUG_DIR = Path(__file__).resolve().parent / "debug_detection"
+
 _model = None
+
+
+def _save_debug(name, img):
+    DEBUG_DIR.mkdir(exist_ok=True)
+    path = DEBUG_DIR / name
+    cv2.imwrite(str(path), img)
+    return f"{DEBUG_DIR.name}/{name}"
 
 
 def _load_model():
@@ -75,15 +84,12 @@ def _cluster_rows(boxes, height_multiplier=0.70):
 
 
 def _select_meter_dials(rows, expected_gauges):
+    # Reading dials are the top row. The bottom row holds test dials
+    # ("half foot", "two feet") that are not part of the reading.
+    # Returned right -> left (1,000 place first), the order reading_main expects.
     if not rows:
         return []
-    top_row = sorted(rows[0], key=lambda b: (b["x1"] + b["x2"]) / 2)
-    bottom_row = sorted(rows[1], key=lambda b: (b["x1"] + b["x2"]) / 2) if len(rows) > 1 else []
-    selected = []
-    if bottom_row:
-        selected.append(bottom_row[0])
-    selected.extend(top_row[: max(0, expected_gauges - len(selected))])
-    return selected[:expected_gauges]
+    return sorted(rows[0], key=lambda b: (b["x1"] + b["x2"]) / 2, reverse=True)
 
 
 def _save_debug_image(image, boxes, selected):
@@ -94,8 +100,8 @@ def _save_debug_image(image, boxes, selected):
         cv2.rectangle(vis, (b["x1"], b["y1"]), (b["x2"], b["y2"]), (0, 220, 0), 2)
         cv2.putText(vis, f"D{i+1}", (b["x1"] + 4, b["y1"] + 22),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 220, 0), 2)
-    cv2.imwrite("debug_detections.png", vis)
-    print("      Saved: debug_detections.png")
+    out = _save_debug("debug_detections.png", vis)
+    print(f"      Saved: {out}")
 
 
 def d_main(image_path, expected_gauges=5, debug=False):
@@ -118,12 +124,12 @@ def d_main(image_path, expected_gauges=5, debug=False):
     print(f"      Clustered into {len(rows)} row(s): {[len(r) for r in rows]}")
 
     selected = _select_meter_dials(rows, expected_gauges)
-    print(f"\n      Selected {len(selected)} dial(s) (D1 bottom, then top left -> right):")
+    print(f"\n      Selected {len(selected)} dial(s) (top row, right -> left):")
     for i, b in enumerate(selected):
         print(f"        Dial {i+1}: cx={b['cx']:.0f} cy={b['cy']:.0f} "
               f"box=[{b['x1']},{b['y1']} -> {b['x2']},{b['y2']}] conf={b['conf']:.2f}")
 
-    if len(selected) < expected_gauges:
+    if len(selected) != expected_gauges:
         print(f"      Warning: expected {expected_gauges}, selected {len(selected)}. "
               "Dial count differs between meters - check EXPECTED_GAUGES.")
 
@@ -138,8 +144,7 @@ def d_main(image_path, expected_gauges=5, debug=False):
             continue
         cropped.append(crop)
         if debug:
-            out = f"debug_crop_{i+1}.png"
-            cv2.imwrite(out, crop)
+            out = _save_debug(f"debug_crop_{i+1}.png", crop)
             print(f"      Saved: {out}")
 
     print(f"\n      Returning {len(cropped)} cropped dial(s).")

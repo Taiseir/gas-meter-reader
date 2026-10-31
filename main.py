@@ -12,16 +12,16 @@ End-to-end gas meter pipeline.
 
 
 Reading order in this version:
-- Dial 1 = bottom-left dial
-- Dial 2..Dial N = top-row dials from left to right
+- Only the top row is read. The bottom row holds test dials
+  ("half foot", "two feet") that are not part of the reading.
+- Dial 1 = top-right dial (1,000 place), then right -> left
 
 
-For a 5-dial meter:
-      D1 = bottom-left
-      D2 = top-left
-      D3 = top-mid-left
-      D4 = top-mid-right
-      D5 = top-right
+For a 4-dial meter:
+      D1 = top-right      (1,000)
+      D2 = top-mid-right  (10,000)
+      D3 = top-mid-left   (100,000)
+      D4 = top-left       (1,000,000)
 """
 
 from pathlib import Path
@@ -35,7 +35,7 @@ PERIOD = 15
 DEBUG = True
 USE_CAMERA = False
 SAMPLE_IMAGE = "meter1.jpg"
-EXPECTED_GAUGES = 5
+EXPECTED_GAUGES = 4  # reading dials in the top row; differs per meter
 
 BASE_DIR = Path(__file__).resolve().parent
 SAMPLE_DIR = BASE_DIR / "GM_sample_images"
@@ -46,7 +46,7 @@ def _digits_to_reading(digits_in_order):
     return int("".join(str(d) for d in digits_in_order)) * 1000
 
 def _place_name_from_index(index, n_dials):
-    power = n_dials - 1 - index
+    power = index
     return f"{1000 * (10 ** power):,}"
 
 def reading_loop():
@@ -79,14 +79,14 @@ def reading_loop():
 
         print("\n" + "━" * 62)
         print("    DIAL-BY-DIAL SUMMARY")
-        print("    (Dial 1 = bottom-left, then top row left -> right)")
+        print("    (Dial 1 = top-right, then top row right -> left)")
         print("━" * 62)
         for i in range(len(cropped_gauges)):
             place_name = _place_name_from_index(i, len(cropped_gauges))
-            debug_file = f"debug_crop_{i+1}.png" if DEBUG else "-"
+            debug_file = f"debug_detection/debug_crop_{i+1}.png" if DEBUG else "-"
             print(f"    Dial {i+1}   [{place_name:>12} place]   ->   {debug_file}")
         print("━" * 62)
-        print(f"   DIGITS IN ORDER : {final_digits}")
+        print(f"   DIGITS (L -> R) : {final_digits}")
         print(f"   TIMESTAMP          : {capture_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"   FINAL READING      : {final_reading:,} cubic feet")
         print("━" * 62 + "\n")
